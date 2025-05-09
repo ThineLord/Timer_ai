@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多功能计时器</title>
+    <style>
+        /* 基本样式和变量 */
+        :root {
+            --bg-color-light: #f4f4f9;
+            --text-color-light: #333;
+            --primary-color-light: #007bff;
+            --secondary-color-light: #6c757d;
+            --button-bg-light: #ffffff;
+            --button-hover-bg-light: #e2e6ea;
+            --border-color-light: #dee2e6;
+
+            --bg-color-dark: #1a1a2e; /* 深色背景 */
+            --text-color-dark: #e0e0e0; /* 深色文字 */
+            --primary-color-dark: #1f75fe; /* 深色主色调 */
+            --secondary-color-dark: #a9b0ba; /* 深色次色调 */
+            --button-bg-dark: #2c2c54; /* 深色按钮背景 */
+            --button-hover-bg-dark: #3a3a6a; /* 深色按钮悬浮背景 */
+            --border-color-dark: #444466; /* 深色边框 */
+
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --transition-speed: 0.3s;
+        }
+
+        body {
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+            padding-top: 70px; /* 为顶部的 theme-switcher 留出一些空间 */
+            padding-bottom: 20px; /* 底部也留一些空间 */
+            box-sizing: border-box; /* 确保padding不会增加body的总尺寸 */
+        }
+
+        /* 浅色模式 */
+        body[data-theme="light"] {
+            --bg-color: var(--bg-color-light);
+            --text-color: var(--text-color-light);
+            --container-bg: var(--button-bg-light);
+            --primary-color: var(--primary-color-light);
+            --secondary-color: var(--secondary-color-light);
+            --button-bg: var(--button-bg-light);
+            --button-hover-bg: var(--button-hover-bg-light);
+            --border-color: var(--border-color-light);
+        }
+
+        /* 深色模式 */
+        body[data-theme="dark"] {
+            --bg-color: var(--bg-color-dark);
+            --text-color: var(--text-color-dark);
+            --container-bg: var(--button-bg-dark);
+            --primary-color: var(--primary-color-dark);
+            --secondary-color: var(--secondary-color-dark);
+            --button-bg: var(--button-bg-dark);
+            --button-hover-bg: var(--button-hover-bg-dark);
+            --border-color: var(--border-color-dark);
+        }
+
+        .theme-switcher {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .theme-switcher label { margin-right: 8px; font-size: 0.9em; color: var(--text-color); }
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: var(--transition-speed); border-radius: 28px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: var(--transition-speed); border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:focus + .slider { box-shadow: 0 0 1px var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .slider.round { border-radius: 28px; }
+        .slider.round:before { border-radius: 50%; }
+
+        .app-wrapper {
+            display: flex;
+            flex-direction: row; /* 强制默认水平排列 */
+            align-items: flex-start;
+            gap: 25px;
+            width: 100%; /* 占据父容器（body content area）的全部可用宽度 */
+            max-width: 680px; /* 调整一个合计的最大宽度，确保左右能放下 */
+            margin: 0 auto; /* 使 app-wrapper 在 body 中水平居中 */
+            padding: 0 15px; /* 给 app-wrapper 左右一些内边距 */
+            box-sizing: border-box;
+            /* flex-wrap: wrap; /* 移除这个，让媒体查询来控制换行（通过改变flex-direction） */
+        }
+
+        .container { /* 主计时器容器 */
+            background-color: var(--container-bg);
+            padding: 30px 35px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            width: auto; /* 让其根据内容和max-width决定 */
+            min-width: 320px; /* 给计时器一个最小宽度 */
+            max-width: 400px; /* 保持主计时器宽度 */
+            transition: background-color var(--transition-speed);
+            order: 1;
+            flex-shrink: 0; /* 防止在空间不足时被压缩 */
+        }
+
+        h1 { color: var(--primary-color); margin-top: 0; margin-bottom: 25px; font-size: 2.2em; }
+        .input-area { margin-bottom: 20px; display: flex; justify-content: center; gap: 8px; }
+        .input-area input[type="number"] {
+            width: 65px; padding: 10px 5px; border: 1px solid var(--border-color); border-radius: var(--border-radius);
+            text-align: center; font-size: 1.1em; background-color: var(--button-bg); color: var(--text-color);
+            transition: border-color var(--transition-speed), background-color var(--transition-speed), color var(--transition-speed);
+        }
+        .input-area input[type="number"]:focus { outline: none; border-color: var(--primary-color); }
+        body[data-theme="light"] .input-area input[type="number"]:focus { box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
+        body[data-theme="dark"] .input-area input[type="number"]:focus { box-shadow: 0 0 0 2px rgba(31, 117, 254, 0.25); }
+        .input-area input[type="number"]::-webkit-outer-spin-button,
+        .input-area input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-area input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+        .timer-display { font-size: 3.8em; font-weight: bold; margin-bottom: 30px; color: var(--text-color); letter-spacing: 2px; }
+        .buttons button {
+            background-color: var(--primary-color); color: white; border: none; padding: 12px 20px; margin: 5px;
+            border-radius: var(--border-radius); cursor: pointer; font-size: 1em; font-weight: 500;
+            transition: background-color var(--transition-speed), transform 0.15s ease-out; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .buttons button:hover { background-color: var(--button-hover-bg); transform: translateY(-2px); }
+        .buttons button:disabled { background-color: var(--secondary-color); cursor: not-allowed; opacity: 0.7; transform: translateY(0); }
+        .buttons button#resetBtn { background-color: var(--secondary-color); }
+        body[data-theme="light"] .buttons button#resetBtn:hover { background-color: #5a6268; }
+        body[data-theme="dark"] .buttons button#resetBtn:hover { background-color: #828a93; }
+
+        .presets-container { /* 预设按钮容器 */
+            display: flex; flex-direction: column; gap: 12px; padding-top: 5px;
+            width: auto; /* 让其根据内容和max-width决定 */
+            min-width: 150px; /* 给预设按钮区一个最小宽度 */
+            max-width: 200px;
+            order: 2;
+            flex-shrink: 0; /* 防止在空间不足时被压缩 */
+        }
+        .preset-button {
+            background-color: var(--button-bg); color: var(--text-color); border: 1px solid var(--border-color);
+            padding: 12px 18px; border-radius: var(--border-radius); cursor: pointer; font-size: 0.95em;
+            text-align: center; transition: background-color var(--transition-speed), border-color var(--transition-speed), color var(--transition-speed), transform 0.15s ease-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .preset-button:hover { background-color: var(--button-hover-bg); border-color: var(--primary-color); transform: translateY(-2px); }
+        body[data-theme="dark"] .preset-button { background-color: var(--button-bg); border-color: var(--border-color-dark); }
+        body[data-theme="dark"] .preset-button:hover { background-color: var(--button-hover-bg-dark); border-color: var(--primary-color-dark); }
+
+        /* 响应式调整：仅在屏幕非常窄时才上下堆叠 */
+        @media (max-width: 630px) { /* 将断点调小，确保在平板和多数桌面视图下是左右 */
+            .app-wrapper {
+                flex-direction: column;
+                align-items: center;
+                max-width: 420px; /* 调整单列时的最大宽度 */
+                gap: 20px;
+            }
+            .container, .presets-container {
+                width: 100% !important; /* 在堆叠时，强制宽度为100% */
+                max-width: 400px !important; /* 并应用一个统一的最大宽度 */
+                min-width: initial !important; /* 重置min-width */
+                order: 0 !important; /* 重置order，按文档流 */
+            }
+             .presets-container {
+                align-items: center; /* 让按钮在容器内居中 */
+                padding-top: 0; /* 移除堆叠时的顶部内边距 */
+            }
+            .presets-container .preset-button {
+                width: 80%;
+                min-width: 200px;
+                max-width: 280px;
+            }
+        }
+
+    </style>
+</head>
+<body data-theme="light">
+
+    <div class="theme-switcher">
+        <label for="themeToggle">模式:</label>
+        <label class="switch">
+            <input type="checkbox" id="themeToggle">
+            <span class="slider round"></span>
+        </label>
+    </div>
+
+    <div class="app-wrapper">
+        <div class="container">
+            <h1>计时器</h1>
+            <div class="input-area">
+                <input type="number" id="hoursInput" placeholder="时" min="0" max="23" value="0">
+                <input type="number" id="minutesInput" placeholder="分" min="0" max="59" value="1">
+                <input type="number" id="secondsInput" placeholder="秒" min="0" max="59" value="00">
+            </div>
+            <div class="timer-display" id="timerDisplay">00:01:00</div>
+            <div class="buttons">
+                <button id="startBtn">开始</button>
+                <button id="stopBtn" disabled>暂停</button>
+                <button id="resetBtn">重置</button>
+            </div>
+        </div>
+
+        <div class="presets-container">
+            <button class="preset-button" data-hours="0" data-minutes="30" data-seconds="0">学习 30min</button>
+            <button class="preset-button" data-hours="0" data-minutes="20" data-seconds="0">午休 20min</button>
+            <button class="preset-button" data-hours="0" data-minutes="15" data-seconds="0">放松 15min</button>
+            <button class="preset-button" data-hours="0" data-minutes="0" data-seconds="1">TEST 1sec</button>
+       </div>
+    </div>
+    <audio id="timerEndSound" preload="auto">
+        <source src="YOUR_SOUND_FILE.mp3" type="audio/mpeg">
+        你的浏览器不支持播放声音。
+    </audio>
+    <script>
+        const timerDisplay = document.getElementById('timerDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const themeToggle = document.getElementById('themeToggle');
+        const hoursInput = document.getElementById('hoursInput');
+        const minutesInput = document.getElementById('minutesInput');
+        const secondsInput = document.getElementById('secondsInput');
+        const body = document.body;
+        const presetButtons = document.querySelectorAll('.preset-button');
+        const timerEndSound = document.getElementById('timerEndSound');
+
+        let timerInterval;
+        let totalSeconds = 0;
+        let initialTotalSeconds = (parseInt(hoursInput.value) || 0) * 3600 +
+                                (parseInt(minutesInput.value) || 0) * 60 +
+                                (parseInt(secondsInput.value) || 0);
+
+        function updateDisplay() {
+            const displayHours = Math.floor(totalSeconds / 3600);
+            const displayMinutes = Math.floor((totalSeconds % 3600) / 60);
+            const displaySeconds = totalSeconds % 60;
+            timerDisplay.textContent =
+                `${String(displayHours).padStart(2, '0')}:${String(displayMinutes).padStart(2, '0')}:${String(displaySeconds).padStart(2, '0')}`;
+        }
+
+        function setInitialTime(isFromScroll = false) {
+            if (!isFromScroll && startBtn.disabled && !document.activeElement.classList.contains('preset-button')) {
+                return;
+            }
+            let inputH = parseInt(hoursInput.value) || 0;
+            let inputM = parseInt(minutesInput.value) || 0;
+            let inputS = parseInt(secondsInput.value) || 0;
+
+            if (inputH < 0) inputH = 0;
+            if (inputH > 23) inputH = 23;
+            if (inputM < 0) inputM = 0;
+            if (inputM > 59) inputM = 59;
+            if (inputS < 0) inputS = 0;
+            if (inputS > 59) inputS = 59;
+            
+            if (hoursInput.value !== String(inputH) && document.activeElement !== hoursInput) hoursInput.value = String(inputH).padStart(2, '0');
+            if (minutesInput.value !== String(inputM) && document.activeElement !== minutesInput) minutesInput.value = String(inputM).padStart(2, '0');
+            if (secondsInput.value !== String(inputS) && document.activeElement !== secondsInput) secondsInput.value = String(inputS).padStart(2, '0');
+            
+            initialTotalSeconds = inputH * 3600 + inputM * 60 + inputS;
+            totalSeconds = initialTotalSeconds;
+            updateDisplay();
+        }
+
+        function startTimer() {
+             if (totalSeconds <= 0 ||
+                ((parseInt(hoursInput.value) || 0) * 3600 +
+                 (parseInt(minutesInput.value) || 0) * 60 +
+                 (parseInt(secondsInput.value) || 0)) !== initialTotalSeconds ||
+                 (initialTotalSeconds === 0 && totalSeconds === 0) 
+                 ) {
+                setInitialTime();
+            }
+            if (totalSeconds <= 0) {
+                console.warn("计时器时间为0，无法启动。");
+                hoursInput.focus();
+                return;
+            }
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (totalSeconds > 0) {
+                    totalSeconds--;
+                    updateDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    timerDisplay.textContent = "时间到!";
+
+                    // --- 修改后的系统通知逻辑 (增加调试信息) ---
+                    if (typeof Notification !== 'undefined') {
+                        console.log('[计时结束] 开始检查通知权限。当前状态:', Notification.permission);
+                        if (Notification.permission === "granted") {
+                            console.log('[计时结束] 通知权限已授予。尝试显示通知...');
+                            try {
+                                const notification = new Notification("计时器提醒", {
+                                    body: "您设定的时间已结束！",
+                                    // icon: "YOUR_ICON_URL.png" // 可选: 替换为你的图标URL
+                                });
+                                notification.onclick = () => {
+                                    console.log('通知被点击');
+                                    window.focus(); // 点击通知时，尝试聚焦到窗口
+                                };
+                                notification.onerror = (err) => {
+                                    console.error('Notification 对象本身发生错误:', err);
+                                };
+                                console.log('[计时结束] 通知对象已创建。如果未弹出，请检查操作系统/浏览器设置。');
+                            } catch (e) {
+                                console.error("[计时结束] 创建 Notification 对象时出错:", e);
+                            }
+                        } else if (Notification.permission === "default") {
+                            console.log("[计时结束] 通知权限为 'default'。通知未显示。");
+                        } else if (Notification.permission === "denied") {
+                            console.log("[计时结束] 通知权限已被拒绝。通知未显示。");
+                        }
+                    } else {
+                        console.log("[计时结束] 此浏览器不支持 Notification API。");
+                    }
+                    // --- 系统通知逻辑结束 ---
+
+                    if (timerEndSound && timerEndSound.src && timerEndSound.src !== window.location.href && !timerEndSound.src.endsWith("#")) {
+                        timerEndSound.currentTime = 0;
+                        timerEndSound.play().catch(error => {
+                            console.error("播放声音时出错:", error);
+                        });
+                    } else {
+                        console.warn("提示音元素未找到或未配置声音文件。");
+                    }
+
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    hoursInput.disabled = false;
+                    minutesInput.disabled = false;
+                    secondsInput.disabled = false;
+                }
+            }, 1000);
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            hoursInput.disabled = true;
+            minutesInput.disabled = true;
+            secondsInput.disabled = true;
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            hoursInput.disabled = false;
+            minutesInput.disabled = false;
+            secondsInput.disabled = false;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            setInitialTime(); 
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            hoursInput.disabled = false;
+            minutesInput.disabled = false;
+            secondsInput.disabled = false;
+        }
+
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+        function applyThemeToPage(isDark) {
+            body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            themeToggle.checked = isDark;
+        }
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            applyThemeToPage(savedTheme === 'dark');
+        } else {
+            applyThemeToPage(prefersDarkScheme.matches);
+        }
+        themeToggle.addEventListener('change', (event) => {
+            const newThemeIsDark = event.target.checked;
+            applyThemeToPage(newThemeIsDark);
+            localStorage.setItem('theme', newThemeIsDark ? 'dark' : 'light');
+        });
+        prefersDarkScheme.addEventListener('change', (event) => {
+            if (!localStorage.getItem('theme')) {
+                applyThemeToPage(event.matches);
+            }
+        });
+
+        function applyPreset(hours, minutes, seconds) {
+            if (startBtn.disabled) {
+                stopTimer();
+            }
+            hoursInput.value = String(hours).padStart(2, '0');
+            minutesInput.value = String(minutes).padStart(2, '0');
+            secondsInput.value = String(seconds).padStart(2, '0');
+            setInitialTime();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            hoursInput.disabled = false;
+            minutesInput.disabled = false;
+            secondsInput.disabled = false;
+        }
+        presetButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const hours = parseInt(button.dataset.hours);
+                const minutes = parseInt(button.dataset.minutes);
+                const seconds = parseInt(button.dataset.seconds);
+                applyPreset(hours, minutes, seconds);
+            });
+        });
+
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        function handleInputValidation(inputElement, max) {
+            let val = parseInt(inputElement.value);
+            if (isNaN(val)) {
+                 if(inputElement.value !== "") inputElement.value = "00"; 
+            } else if (val < 0) {
+                inputElement.value = "00";
+            } else if (val > max) {
+                inputElement.value = String(max).padStart(2, '0');
+            }
+            setInitialTime();
+        }
+        
+        function handleFocusOutFormatting(inputElement, defaultValue = 0, max) {
+            let val = parseInt(inputElement.value);
+            if (inputElement.value === "" || isNaN(val) || val < 0) {
+                inputElement.value = String(defaultValue).padStart(2,'0');
+            } else if (val > max) {
+                 inputElement.value = String(max).padStart(2,'0');
+            }
+             else {
+                inputElement.value = String(val).padStart(2,'0');
+            }
+            setInitialTime();
+        }
+
+        hoursInput.addEventListener('input', () => handleInputValidation(hoursInput, 23));
+        minutesInput.addEventListener('input', () => handleInputValidation(minutesInput, 59));
+        secondsInput.addEventListener('input', () => handleInputValidation(secondsInput, 59));
+
+        hoursInput.addEventListener('blur', () => handleFocusOutFormatting(hoursInput, 0, 23));
+        minutesInput.addEventListener('blur', () => handleFocusOutFormatting(minutesInput, 0, 59));
+        secondsInput.addEventListener('blur', () => handleFocusOutFormatting(secondsInput, 0, 59));
+
+        function handleWheelScroll(event, inputElement, max, min = 0, step = 1) {
+            if (inputElement.disabled) return;
+            event.preventDefault();
+            let currentValue = parseInt(inputElement.value) || 0;
+            if (event.deltaY < 0) {
+                currentValue += step;
+                if (currentValue > max) currentValue = min;
+            } else {
+                currentValue -= step;
+                if (currentValue < min) currentValue = max;
+            }
+            inputElement.value = String(currentValue).padStart(2, '0');
+            setInitialTime(true);
+        }
+        hoursInput.addEventListener('wheel', (event) => handleWheelScroll(event, hoursInput, 23));
+        minutesInput.addEventListener('wheel', (event) => handleWheelScroll(event, minutesInput, 59));
+        secondsInput.addEventListener('wheel', (event) => handleWheelScroll(event, secondsInput, 59));
+        
+        // 页面加载时请求桌面通知权限
+        if (typeof Notification !== 'undefined' && Notification.permission === "default") {
+            console.log("页面加载：检测到通知权限为 'default'，尝试请求权限...");
+            Notification.requestPermission().then(permission => {
+                console.log("页面加载：权限请求完成，用户选择的状态为:", permission);
+                if (permission === "granted") {
+                    // 可以选择在这里显示一个欢迎通知，确认权限已工作
+                    // new Notification("提示", { body: "计时器通知已启用！" });
+                }
+            });
+        } else if (typeof Notification !== 'undefined') {
+            console.log("页面加载：当前通知权限状态:", Notification.permission);
+        } else {
+            console.log("页面加载：此浏览器不支持 Notification API。");
+        }
+
+        setInitialTime(); // 初始化显示
+
+    </script>
+</body>
+</html>
